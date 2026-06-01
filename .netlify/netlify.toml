@@ -1,0 +1,43 @@
+functionsDirectory = "F:\\GGNEWS\\kids-study-app\\netlify\\functions"
+functionsDirectoryOrigin = "config-v1"
+redirectsOrigin = "config"
+plugins = []
+headers = []
+
+[build]
+publish = "F:\\GGNEWS\\kids-study-app\\dist"
+publishOrigin = "config"
+commandOrigin = "config"
+base = "F:\\GGNEWS\\kids-study-app"
+command = "npm run build"
+functions = "F:\\GGNEWS\\kids-study-app\\netlify\\functions"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[functions]
+
+[functions."*"]
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200.0
+force = false
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 배경 -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="bookGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef9c3"/>
+      <stop offset="100%" style="stop-color:#fde68a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 배경 원형 -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- 책 본체 -->
+  <rect x="120" y="160" width="180" height="230" rx="12" fill="url(#bookGrad)" />
+  <!-- 책 척추 -->
+  <rect x="120" y="160" width="28" height="230" rx="8" fill="#fbbf24"/>
+  <!-- 책 줄 -->
+  <rect x="164" y="210" width="110" height="10" rx="5" fill="#a78bfa" opacity="0.6"/>
+  <rect x="164" y="235" width="90" height="10" rx="5" fill="#a78bfa" opacity="0.6"/>
+  <rect x="164" y="260" width="100" height="10" rx="5" fill="#a78bfa" opacity="0.6"/>
+  <rect x="164" y="285" width="75" height="10" rx="5" fill="#a78bfa" opacity="0.6"/>
+
+  <!-- 뒤 책 -->
+  <rect x="155" y="145" width="180" height="230" rx="12" fill="#c7d2fe" opacity="0.7"/>
+  <rect x="155" y="145" width="28" height="230" rx="8" fill="#818cf8" opacity="0.8"/>
+
+  <!-- 큰 별 (오른쪽 위) -->
+  <g transform="translate(355, 150)">
+    <polygon points="0,-52 12,-18 48,-18 20,8 30,44 0,22 -30,44 -20,8 -48,-18 -12,-18"
+      fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/>
+  </g>
+
+  <!-- 작은 별들 -->
+  <g transform="translate(410, 240)">
+    <polygon points="0,-22 5,-8 20,-8 8,3 13,18 0,10 -13,18 -8,3 -20,-8 -5,-8"
+      fill="#fde68a" opacity="0.9"/>
+  </g>
+  <g transform="translate(100, 140)">
+    <polygon points="0,-18 4,-6 16,-6 7,2 10,14 0,8 -10,14 -7,2 -16,-6 -4,-6"
+      fill="#fde68a" opacity="0.8"/>
+  </g>
+
+  <!-- 반짝임 점들 -->
+  <circle cx="390" cy="300" r="7" fill="#fde68a" opacity="0.7"/>
+  <circle cx="95" cy="300" r="5" fill="#fde68a" opacity="0.6"/>
+  <circle cx="430" cy="180" r="5" fill="white" opacity="0.5"/>
+
+  <!-- 체크마크 (책 위) -->
+  <circle cx="256" cy="390" r="52" fill="#10b981"/>
+  <polyline points="230,390 248,410 285,372" fill="none" stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
