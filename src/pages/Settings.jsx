@@ -243,7 +243,8 @@ export default function Settings({ store, onLock, onBack }) {
                   <button onClick={() => setProfileTab('pin')} className="bg-white border border-purple-200 text-purple-600 text-xs font-bold py-2.5 rounded-xl hover:bg-purple-50 transition-all flex items-center justify-center gap-1">
                     🔐 비밀번호 {profile.pinHash ? <span className="bg-purple-100 text-purple-600 text-[9px] px-1.5 py-0.5 rounded-full">설정됨</span> : <span className="text-gray-400 font-normal">미설정</span>}
                   </button>
-                  <button onClick={() => setProfileTab('reset')} className="bg-white border border-red-200 text-red-500 text-xs font-bold py-2.5 rounded-xl hover:bg-red-50 transition-all col-span-2">↺ 초기화</button>
+                  <button onClick={() => setProfileTab('streak')} className="bg-white border border-orange-200 text-orange-600 text-xs font-bold py-2.5 rounded-xl hover:bg-orange-50 transition-all">🔥 연속 일수</button>
+                  <button onClick={() => setProfileTab('reset')} className="bg-white border border-red-200 text-red-500 text-xs font-bold py-2.5 rounded-xl hover:bg-red-50 transition-all">↺ 초기화</button>
                 </div>}
 
                 {/* 목표 관리 탭 */}
@@ -568,6 +569,64 @@ export default function Settings({ store, onLock, onBack }) {
                     ) : (
                       <ProfilePinSetup profileId={profile.id} profileName={profile.name} setProfilePin={setProfilePin} />
                     )}
+                  </div>
+                )}
+
+                {/* 연속 일수 탭 */}
+                {profileTab === 'streak' && (
+                  <div className="space-y-3">
+                    <button onClick={() => setProfileTab(null)} className="flex items-center gap-1 text-xs text-indigo-500 font-semibold"><ArrowLeft className="w-3 h-3" /> 뒤로</button>
+                    <div className="text-xs font-semibold text-gray-500">{profile.name}의 연속 일수 관리</div>
+                    
+                    {/* 현재 연속 일수 표시 */}
+                    <div className="bg-orange-50 rounded-xl p-4 text-center">
+                      <div className="text-4xl mb-1">🔥</div>
+                      <div className="text-3xl font-bold text-orange-600">{profile.streak || 0}일</div>
+                      <div className="text-xs text-orange-500 mt-1">현재 연속 달성</div>
+                      {profile.lastCompletedDate && (
+                        <div className="text-xs text-gray-500 mt-2">마지막 완료: {profile.lastCompletedDate}</div>
+                      )}
+                    </div>
+                    
+                    {/* 수동 조정 */}
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-gray-600">수동 조정 (테스트용)</div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => updateProfile(profile.id, { streak: (profile.streak || 0) + 1 })}
+                          className="flex-1 bg-green-100 text-green-700 py-2 rounded-xl text-xs font-bold hover:bg-green-200"
+                        >
+                          +1일
+                        </button>
+                        <button 
+                          onClick={() => updateProfile(profile.id, { streak: Math.max(0, (profile.streak || 0) - 1) })}
+                          className="flex-1 bg-red-100 text-red-700 py-2 rounded-xl text-xs font-bold hover:bg-red-200"
+                        >
+                          -1일
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => updateProfile(profile.id, { streak: 0, lastCompletedDate: null })}
+                          className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl text-xs font-bold hover:bg-gray-200"
+                        >
+                          초기화 (0일)
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                            updateProfile(profile.id, { streak: 5, lastCompletedDate: yesterday })
+                          }}
+                          className="flex-1 bg-orange-100 text-orange-700 py-2 rounded-xl text-xs font-bold hover:bg-orange-200"
+                        >
+                          테스트: 5일로 설정
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-2">
+                      💡 내일 목표를 완료하면 {((profile.streak || 0) + 1)}일 연속이 됩니다
+                    </div>
                   </div>
                 )}
 
