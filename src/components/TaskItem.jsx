@@ -7,7 +7,6 @@ export default function TaskItem({ task, done, onToggle, onDelete, onEdit }) {
   return (
     <div
       className={`flex items-center gap-3 px-4 py-3.5 md:py-2 lg:py-1.5 check-transition group ${done ? 'bg-green-50' : 'bg-white'}`}
-      onTouchStart={() => setShowDelete(false)}
     >
       <button
         onClick={onToggle}
@@ -55,7 +54,11 @@ export default function TaskItem({ task, done, onToggle, onDelete, onEdit }) {
               if (showDelete) { onDelete(); setShowDelete(false) }
               else setShowDelete(true)
             }}
-            onBlur={() => setTimeout(() => setShowDelete(false), 200)}
+            onTouchEnd={(e) => {
+              e.preventDefault()
+              if (showDelete) { onDelete(); setShowDelete(false) }
+              else setShowDelete(true)
+            }}
             className={`p-1 rounded-lg transition-all ${showDelete ? 'text-red-500 bg-red-50' : 'text-gray-300 hover:text-red-400'}`}
           >
             <Trash2 className="w-4 h-4" />
