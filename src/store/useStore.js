@@ -74,9 +74,40 @@ function loadData() {
 
 function saveData(data) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    // 30일 이상 된 completions 정리 (용량 최적화)
+    const cleaned = cleanOldData(data)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
   } catch (e) {
     console.error('저장 실패:', e)
+  }
+}
+
+// 30일 이상 된 completions 자동 정리
+function cleanOldData(data) {
+  if (!data || !data.profiles) return data
+  
+  const today = new Date()
+  const cutoffDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000) // 30일 전
+  const cutoffStr = cutoffDate.toISOString().split('T')[0]
+  
+  return {
+    ...data,
+    profiles: data.profiles.map(profile => {
+      if (!profile.completions) return profile
+      
+      // 30일 이내 completions만 유지
+      const recentCompletions = {}
+      Object.entries(profile.completions).forEach(([date, comp]) => {
+        if (date >= cutoffStr) {
+          recentCompletions[date] = comp
+        }
+      })
+      
+      return {
+        ...profile,
+        completions: recentCompletions
+      }
+    })
   }
 }
 
@@ -92,6 +123,7 @@ export function useStore() {
       adminPinHash: null,
       adminUnlockUntil: null,
       trash: [],
+      adminLogs: [], // 관리자 변경 로그
     }
   })
   const [adminUnlocked, setAdminUnlocked] = useState(false)
@@ -273,7 +305,40 @@ export function useStore() {
     return profile.completions[today] || {}
   }, [data, today])
 
-  const toggleTask = useCallback((profileId, taskId, targetDate = null) => {
+  // 연속 일수 계산 함수 - 마지막 완료일부터 거슬러 올라가며 계산
+  const calculateStreak = useCallback((profile, checkDate) => {
+    const completions = profile.completions || {}
+    const tasks = profile.tasks || []
+    
+    if (!tasks.length) return { streak: 0, lastDate: null }
+    
+    // checkDate부터 거슬러 올라가며 연속 완료일 계산
+    let streak = 0
+    let currentDate = new Date(checkDate)
+    
+    while (true) {
+      const dateStr = format(currentDate, 'yyyy-MM-dd')
+      const dayComp = completions[dateStr] || {}
+      
+      // 해당 날짜에 모든 목표 완료했는지 확인
+      const allDone = tasks.every(t => dayComp[t.id])
+      
+      if (allDone) {
+        streak++
+        // 하루 전으로 이동
+        currentDate = new Date(currentDate.getTime() - 86400000)
+      } else {
+        break
+      }
+    }
+    
+    // 마지막 완료일 (streak이 0이면 null, 아니면 checkDate)
+    const lastDate = streak > 0 ? checkDate : profile.lastCompletedDate
+    
+    return { streak, lastDate }
+  }, [])
+
+  const toggleTask = useCallback((profileId, taskId, targetDate = null, isAdmin = false) => {
     const profile = data.profiles.find(p => p.id === profileId)
     if (!profile) return null
 
@@ -285,27 +350,55 @@ export function useStore() {
 
     const newDateComp = { ...dateComp, [taskId]: !wasCompleted }
     
-    // 오늘 날짜가 아니면 포인트/레벨/스트릭 계산하지 않음
-    const isToday = date === today
+    // 오늘 날짜거나 관리자 모드이면 포인트/레벨/스트릭 계산
+    const shouldCalculate = date === today || isAdmin
     
     let updatedProfile = {
       ...profile,
       completions: { ...profile.completions, [date]: newDateComp },
     }
     
-    if (isToday) {
+    // 관리자 변경 로그
+    let newAdminLogs = data.adminLogs || []
+    if (isAdmin) {
+      const logEntry = {
+        id: `log_${Date.now()}`,
+        type: 'task_toggle',
+        profileId,
+        taskId,
+        taskTitle: task.title,
+        date,
+        action: wasCompleted ? 'uncomplete' : 'complete',
+        timestamp: new Date().toISOString(),
+      }
+      newAdminLogs = [logEntry, ...(newAdminLogs.slice(0, 99))] // 최근 100개만 유지
+    }
+    
+    if (shouldCalculate) {
       const pointDelta = wasCompleted ? -task.points : task.points
       const newTotalPoints = Math.max(0, (profile.totalPoints || 0) + pointDelta)
       const newLevel = Math.floor(newTotalPoints / 100) + 1
 
       const allDone = profile.tasks.every(t => newDateComp[t.id])
+      
+      // 개선된 연속 일수 계산
       let newStreak = profile.streak || 0
       let newLastDate = profile.lastCompletedDate
-
-      if (allDone && profile.lastCompletedDate !== today) {
-        const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd')
-        newStreak = profile.lastCompletedDate === yesterday ? (profile.streak || 0) + 1 : 1
-        newLastDate = today
+      
+      if (allDone) {
+        // 오늘 완료했을 때
+        if (date === today && profile.lastCompletedDate !== today) {
+          const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd')
+          newStreak = profile.lastCompletedDate === yesterday ? (profile.streak || 0) + 1 : 1
+          newLastDate = today
+        } 
+        // 관리자가 과거 날짜 완료했을 때 - 연속 일수 재계산
+        else if (isAdmin && date !== today) {
+          // 해당 날짜 기준으로 연속 일수 계산
+          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions }, date)
+          newStreak = streak
+          newLastDate = lastDate
+        }
       }
 
       const oldLevel = profile.level || 1
@@ -326,19 +419,21 @@ export function useStore() {
         ...data,
         profiles: data.profiles.map(p => p.id === profileId ? updatedProfile : p),
         pendingMilestones: newPendingMilestones,
+        adminLogs: newAdminLogs,
       })
 
-      return { allDone, pointDelta, newLevel, wasLevelUp: newLevel > oldLevel }
+      return { allDone, pointDelta, newLevel, wasLevelUp: newLevel > oldLevel, newStreak }
     } else {
       // 과거/미래 날짜는 완료 상태만 저장
       persist({
         ...data,
         profiles: data.profiles.map(p => p.id === profileId ? updatedProfile : p),
+        adminLogs: newAdminLogs,
       })
       
-      return { allDone: false, pointDelta: 0, newLevel: profile.level || 1, wasLevelUp: false }
+      return { allDone: false, pointDelta: 0, newLevel: profile.level || 1, wasLevelUp: false, newStreak: profile.streak }
     }
-  }, [data, today, persist])
+  }, [data, today, persist, calculateStreak])
 
   const copyTask = useCallback((profileId, task) => {
     const profile = data.profiles.find(p => p.id === profileId)

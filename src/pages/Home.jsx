@@ -86,10 +86,11 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const levelProgress = Math.min(100, totalTaskPoints > 0 ? Math.round((donePoints / totalTaskPoints) * 100) : 0)
 
   const handleToggle = (taskId) => {
-    const result = toggleTask(activeProfile.id, taskId, viewDateStr)
+    // 관리자 모드이면 모든 날짜에서 포인트/레벨/스트릭 계산
+    const result = toggleTask(activeProfile.id, taskId, viewDateStr, isAdminMode)
     if (!result) return
-    // 오늘 날짜에서만 축하 이펙트와 리워드 처리
-    if (isToday) {
+    // 오늘 날짜거나 관리자 모드에서만 축하 이펙트와 리워드 처리
+    if (isToday || isAdminMode) {
       if (result.allDone && !allDone) {
         setCelebrate(true)
         setTimeout(() => setCelebrate(false), 2000)

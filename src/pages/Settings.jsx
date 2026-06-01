@@ -101,6 +101,7 @@ export default function Settings({ store, onLock, onBack }) {
   const [showCalendarTaskModal, setShowCalendarTaskModal] = useState(false)
   const [showDataRecovery, setShowDataRecovery] = useState(false)
   const [recoveryData, setRecoveryData] = useState({ local: null, remote: null })
+  const [showAdminLogs, setShowAdminLogs] = useState(false)
 
   const DOW = ['월', '화', '수', '목', '금', '토', '일']
   const dowLabel = (days) => !days || days.length === 0 ? '매일' : days.map(d => DOW[d-1]).join('·')
@@ -826,6 +827,13 @@ export default function Settings({ store, onLock, onBack }) {
             데이터 가져오기 (파일 선택)
           </button>
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+          
+          {/* 관리자 변경 로그 */}
+          <button onClick={() => setShowAdminLogs(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-orange-600 font-semibold hover:bg-orange-50 transition-colors">
+            <span className="text-lg">📋</span>
+            관리자 변경 로그 보기 ({(data.adminLogs || []).length}개)
+          </button>
         </div>
         {importStatus && (
           <div className={`mx-4 mb-3 px-3 py-2 rounded-xl text-sm font-semibold ${
@@ -942,6 +950,52 @@ export default function Settings({ store, onLock, onBack }) {
               취소
             </button>
           </div>
+        </div>
+      </div>
+    , document.body)}
+
+    {/* 관리자 변경 로그 모달 */}
+    {showAdminLogs && createPortal(
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] px-6">
+        <div className="bg-white rounded-3xl p-5 w-full max-w-lg space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
+          <div className="text-center">
+            <div className="text-3xl mb-2">📋</div>
+            <div className="font-bold text-gray-800 text-base">관리자 변경 로그</div>
+            <div className="text-xs text-gray-500 mt-1">최근 100개만 표시됩니다</div>
+          </div>
+          
+          {/* 로그 목록 */}
+          <div className="flex-1 overflow-y-auto space-y-2 border rounded-xl p-2">
+            {(data.adminLogs || []).length === 0 ? (
+              <div className="text-sm text-gray-400 text-center py-4">아직 관리자 변경 기록이 없어요</div>
+            ) : (
+              (data.adminLogs || []).map((log, index) => {
+                const profile = data.profiles.find(p => p.id === log.profileId)
+                return (
+                  <div key={log.id || index} className="bg-gray-50 rounded-lg p-3 text-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-gray-700">{profile?.name || '알 수 없음'}</span>
+                      <span className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleString('ko-KR')}</span>
+                    </div>
+                    <div className="text-gray-600">
+                      {log.date} - <span className={log.action === 'complete' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        {log.action === 'complete' ? '✅ 완료' : '❌ 미완료'}
+                      </span>
+                      <span className="text-gray-500 ml-1">- {log.taskTitle}</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+          
+          {/* 닫기 버튼 */}
+          <button 
+            onClick={() => setShowAdminLogs(false)}
+            className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all"
+          >
+            닫기
+          </button>
         </div>
       </div>
     , document.body)}
