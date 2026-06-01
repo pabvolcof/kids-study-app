@@ -169,7 +169,9 @@ export function useStore() {
         (payload) => {
           if (isSyncingFromRemote.current) return
           const remote = payload.new.data
-          const local = data
+          // 최신 로컬 데이터 가져오기
+          const localRaw = localStorage.getItem(STORAGE_KEY)
+          const local = localRaw ? JSON.parse(localRaw) : data
           
           if (remote && remote.profiles) {
             // 로컬 프로필과 원격 프로필 병합
