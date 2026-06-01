@@ -722,6 +722,56 @@ export default function Settings({ store, onLock, onBack }) {
                   <ShieldOff className="w-5 h-5" />
                   PIN 잠금 해제
                 </button>
+                {/* 데이터 백업 */}
+                <button onClick={() => {
+                  const data = localStorage.getItem('kids_study_app_v1')
+                  if (data) {
+                    const blob = new Blob([data], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `kids-study-backup-${new Date().toISOString().split('T')[0]}.json`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    alert('✅ 백업 파일이 다운로드되었습니다!')
+                  }
+                }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-blue-600 font-semibold hover:bg-blue-50 transition-colors">
+                  <Download className="w-5 h-5" />
+                  데이터 백업 (Download)
+                </button>
+                {/* 데이터 복원 */}
+                <button onClick={() => {
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  input.accept = '.json'
+                  input.onchange = (e) => {
+                    const file = e.target.files[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (event) => {
+                        try {
+                          const data = JSON.parse(event.target.result)
+                          if (confirm(`⚠️ ${file.name} 파일로 데이터를 복원하시겠습니까?\n\n현재 데이터는 덮어쓰여집니다.`)) {
+                            localStorage.setItem('kids_study_app_v1', JSON.stringify(data))
+                            alert('✅ 복원 완료! 페이지를 새로고침합니다.')
+                            location.reload()
+                          }
+                        } catch (err) {
+                          alert('❌ 파일 형식이 올바르지 않습니다.')
+                        }
+                      }
+                      reader.readAsText(file)
+                    }
+                  }
+                  input.click()
+                }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-green-600 font-semibold hover:bg-green-50 transition-colors">
+                  <Upload className="w-5 h-5" />
+                  데이터 복원 (Upload)
+                </button>
                 <button onClick={() => {
                   // 로컬과 원격 데이터 확인
                   const localRaw = localStorage.getItem('kids_study_app_v1')

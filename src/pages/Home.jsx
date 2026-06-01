@@ -48,6 +48,37 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const progress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0
   const allDone = tasks.length > 0 && doneTasks.length === tasks.length
 
+  // URL 파라미터로 백업/초기화 처리
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    
+    // 백업: ?backup=1
+    if (params.get('backup') === '1') {
+      const data = localStorage.getItem('kids_study_app_v1')
+      if (data) {
+        const blob = new Blob([data], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `kids-study-backup-${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        alert('✅ 백업 파일이 다운로드되었습니다!')
+      }
+    }
+    
+    // 초기화: ?clear=1
+    if (params.get('clear') === '1') {
+      if (confirm('⚠️ 모든 데이터를 초기화하시겠습니까?\n\n이전: localStorage 데이터 삭제\n이후: Supabase에서 데이터 다시 로드\n\n계속하시겠습니까?')) {
+        localStorage.removeItem('kids_study_app_v1')
+        alert('✅ 초기화 완료! 페이지를 새로고침합니다.')
+        window.location.href = window.location.pathname
+      }
+    }
+  }, [])
+
   const levelTitle = LEVEL_TITLES[Math.min(activeProfile.level - 1, LEVEL_TITLES.length - 1)] || '새싹'
   const totalTaskPoints = tasks.reduce((sum, t) => sum + (t.points || 0), 0)
   const donePoints = doneTasks.reduce((sum, t) => sum + (t.points || 0), 0)
