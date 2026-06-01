@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { format, addDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Plus, Trash2, Star, Flame, Lock, Unlock, Home as HomeIcon, Settings, ChevronLeft, ChevronRight } from 'lucide-react'

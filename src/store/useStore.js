@@ -79,6 +79,16 @@ function saveData(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
   } catch (e) {
     console.error('저장 실패:', e)
+    // QuotaExceededError 발생 시 localStorage 초기화 후 재시도
+    if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+      console.warn('localStorage 용량 초과 - 초기화 후 재시도')
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanOldData(data)))
+      } catch (e2) {
+        console.error('재저장 실패:', e2)
+      }
+    }
   }
 }
 
