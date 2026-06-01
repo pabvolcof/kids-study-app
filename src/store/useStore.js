@@ -153,9 +153,26 @@ export function useStore() {
   // Supabase에서 초기 데이터 로드 - 로컬 데이터와 병합
   useEffect(() => {
     setSyncStatus('syncing')
+    
+    // 10초 타임아웃 설정
+    const timeoutId = setTimeout(() => {
+      console.warn('동기화 타임아웃')
+      setSyncStatus('error')
+    }, 10000)
+    
     supabase.from('app_data').select('data').eq('id', 'main').single()
       .then(({ data: row, error }) => {
-        if (error || !row) { setSyncStatus('error'); return }
+        clearTimeout(timeoutId) // 타임아웃 취소
+        if (error) { 
+          console.error('Supabase 오류:', error)
+          setSyncStatus('error'); 
+          return 
+        }
+        if (!row) {
+          console.log('Supabase에 데이터 없음 - 초기 데이터 생성')
+          setSyncStatus('synced')
+          return
+        }
         const remote = row.data
         const local = data
         

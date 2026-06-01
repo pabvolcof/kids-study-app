@@ -17,6 +17,7 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const [editingTask, setEditingTask] = useState(null)
   const [editTitle, setEditTitle] = useState('')
   const [editPoints, setEditPoints] = useState(10)
+  const [forceOffline, setForceOffline] = useState(false)
 
   const handleAdminLogin = async (pin) => {
     const ok = await verifyPin(pin)
@@ -157,14 +158,25 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
           {syncStatus === 'synced' && <div className="text-xs text-green-400 font-medium">✓ 동기화 완료</div>}
           {syncStatus === 'error' && <div className="text-xs text-red-400 font-medium">⚠ 동기화 실패</div>}
           {syncStatus === 'idle' && <div className="text-xs text-gray-400 font-medium">○ 동기화 대기</div>}
+          {forceOffline && <div className="text-xs text-orange-400 font-medium">✈ 오프라인 모드</div>}
         </div>
-        <button 
-          onClick={() => manualSync && manualSync()}
-          disabled={syncStatus === 'syncing'}
-          className="text-xs text-indigo-500 hover:text-indigo-700 font-medium disabled:opacity-50"
-        >
-          🔄 수동 동기화
-        </button>
+        <div className="flex items-center gap-2">
+          {syncStatus === 'syncing' && (
+            <button 
+              onClick={() => setForceOffline(true)}
+              className="text-xs text-red-400 hover:text-red-600 font-medium"
+            >
+              ✕ 중지
+            </button>
+          )}
+          <button 
+            onClick={() => manualSync && manualSync()}
+            disabled={syncStatus === 'syncing' || forceOffline}
+            className="text-xs text-indigo-500 hover:text-indigo-700 font-medium disabled:opacity-50"
+          >
+            🔄 수동 동기화
+          </button>
+        </div>
       </div>
 
       <div className={`bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl p-5 text-white relative overflow-hidden ${celebrate ? 'animate-pulse' : ''}`}>
