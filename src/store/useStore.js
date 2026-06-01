@@ -602,6 +602,58 @@ export function useStore() {
     exportData,
     importData,
     syncStatus,
+    manualSync: useCallback(() => {
+      setSyncStatus('syncing')
+      return supabase.from('app_data').select('data').eq('id', 'main').single()
+        .then(({ data: row, error }) => {
+          if (error || !row) { 
+            setSyncStatus('error')
+            return { success: false, error }
+          }
+          const remote = row.data
+          const localRaw = localStorage.getItem(STORAGE_KEY)
+          const local = localRaw ? JSON.parse(localRaw) : data
+          
+          if (remote && remote.profiles) {
+            const localProfileIds = new Set((local.profiles || []).map(p => p.id))
+            const remoteProfileIds = new Set(remote.profiles.map(p => p.id))
+            
+            const localOnlyProfiles = (local.profiles || []).filter(p => !remoteProfileIds.has(p.id))
+            const remoteOnlyProfiles = remote.profiles.filter(p => !localProfileIds.has(p.id))
+            
+            const commonProfiles = (local.profiles || []).filter(p => remoteProfileIds.has(p.id)).map(localProfile => {
+              const remoteProfile = remote.profiles.find(p => p.id === localProfile.id)
+              const mergedCompletions = {
+                ...(remoteProfile.completions || {}),
+                ...(localProfile.completions || {})
+              }
+              return {
+                ...remoteProfile,
+                ...localProfile,
+                completions: mergedCompletions,
+                totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
+                level: localProfile.level || remoteProfile.level,
+                streak: localProfile.streak || remoteProfile.streak,
+                lastCompletedDate: localProfile.lastCompletedDate || remoteProfile.lastCompletedDate
+              }
+            })
+            
+            const mergedProfiles = [...remoteOnlyProfiles, ...commonProfiles, ...localOnlyProfiles]
+            
+            const merged = migrateData({
+              ...remote,
+              profiles: mergedProfiles,
+              activeProfileId: local.activeProfileId || null,
+              trash: [...(remote.trash || []), ...(local.trash || [])]
+            })
+            
+            setData(merged)
+            saveData(merged)
+          }
+          setSyncStatus('synced')
+          return { success: true }
+        })
+    }, [data]),
     setProfilePin,
     clearProfilePin,
     verifyProfilePin,

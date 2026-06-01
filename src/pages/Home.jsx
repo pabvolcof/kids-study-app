@@ -9,7 +9,7 @@ import PinModal from '../components/PinModal'
 const LEVEL_TITLES = ['새싹', '새싹', '새싹', '씩씩한 학생', '씩씩한 학생', '열공왕', '열공왕', '공부마스터', '공부마스터', '천재소년', '천재소년']
 
 export default function Home({ store, onReward, onGoHome, onGoSettings }) {
-  const { activeProfile, subjects, today, toggleTask, deleteTask, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask, syncStatus } = store
+  const { activeProfile, subjects, today, toggleTask, deleteTask, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask, syncStatus, manualSync } = store
   const [showAddTask, setShowAddTask] = useState(false)
   const [celebrate, setCelebrate] = useState(false)
   const [showAdminPin, setShowAdminPin] = useState(false)
@@ -119,8 +119,21 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
       </div>
 
       {/* 동기화 상태 */}
-      {syncStatus === 'syncing' && <div className="flex items-center gap-1.5 text-xs text-indigo-400 font-medium"><span className="animate-spin">⟳</span> 동기화 중...</div>}
-      {syncStatus === 'error' && <div className="text-xs text-red-400 font-medium">⚠ 동기화 실패 (오프라인?)</div>}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {syncStatus === 'syncing' && <div className="flex items-center gap-1.5 text-xs text-indigo-400 font-medium"><span className="animate-spin">⟳</span> 동기화 중...</div>}
+          {syncStatus === 'synced' && <div className="text-xs text-green-400 font-medium">✓ 동기화 완료</div>}
+          {syncStatus === 'error' && <div className="text-xs text-red-400 font-medium">⚠ 동기화 실패</div>}
+          {syncStatus === 'idle' && <div className="text-xs text-gray-400 font-medium">○ 동기화 대기</div>}
+        </div>
+        <button 
+          onClick={() => manualSync && manualSync()}
+          disabled={syncStatus === 'syncing'}
+          className="text-xs text-indigo-500 hover:text-indigo-700 font-medium disabled:opacity-50"
+        >
+          🔄 수동 동기화
+        </button>
+      </div>
 
       <div className={`bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl p-5 text-white relative overflow-hidden ${celebrate ? 'animate-pulse' : ''}`}>
         {celebrate && (
