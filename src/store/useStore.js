@@ -193,9 +193,15 @@ export function useStore() {
               ...(remoteProfile.completions || {}),
               ...(localProfile.completions || {})
             }
+            // 휴지통에 있는 task ID 목록
+            const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
+            const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
+            // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
+            const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
             return {
               ...remoteProfile,
               ...localProfile,
+              tasks: mergedTasks,  // 로컬 tasks 우선 사용
               completions: mergedCompletions,
               totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
               level: localProfile.level || remoteProfile.level,
@@ -248,9 +254,15 @@ export function useStore() {
                 ...(remoteProfile.completions || {}),
                 ...(localProfile.completions || {})
               }
+              // 휴지통에 있는 task ID 목록
+              const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
+              const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
+              // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
+              const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
               return {
                 ...remoteProfile,
                 ...localProfile,
+                tasks: mergedTasks,  // 로컬 tasks 우선 사용
                 completions: mergedCompletions,
                 // 로컬의 최신 상태 유지
                 totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
@@ -750,9 +762,15 @@ export function useStore() {
                 ...(remoteProfile.completions || {}),
                 ...(localProfile.completions || {})
               }
+              // 휴지통에 있는 task ID 목록
+              const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
+              const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
+              // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
+              const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
               return {
                 ...remoteProfile,
                 ...localProfile,
+                tasks: mergedTasks,  // 로컬 tasks 우선 사용
                 completions: mergedCompletions,
                 totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
                 level: localProfile.level || remoteProfile.level,
