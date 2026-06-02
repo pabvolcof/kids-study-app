@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
+import { loadFromDB, saveToDB } from '../lib/db'
 
 const STORAGE_KEY = 'kids_study_app_v1'
 const DATA_VERSION = 2
@@ -62,33 +63,23 @@ const createProfile = (name, avatar) => ({
   rewards: [],
 })
 
-function loadData() {
+async function loadData() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return migrateData(JSON.parse(raw))
+    const data = await loadFromDB()
+    if (!data) return null
+    return migrateData(data)
   } catch {
     return null
   }
 }
 
-function saveData(data) {
+async function saveData(data) {
   try {
     // 30일 이상 된 completions 정리 (용량 최적화)
     const cleaned = cleanOldData(data)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
+    await saveToDB(cleaned)
   } catch (e) {
     console.error('저장 실패:', e)
-    // QuotaExceededError 발생 시 localStorage 초기화 후 재시도
-    if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-      console.warn('localStorage 용량 초과 - 초기화 후 재시도')
-      try {
-        localStorage.removeItem(STORAGE_KEY)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanOldData(data)))
-      } catch (e2) {
-        console.error('재저장 실패:', e2)
-      }
-    }
   }
 }
 
@@ -122,25 +113,33 @@ function cleanOldData(data) {
 }
 
 export function useStore() {
-  const [data, setData] = useState(() => {
-    const saved = loadData()
-    if (saved) return { ...saved, activeProfileId: null }
-    return {
-      dataVersion: DATA_VERSION,
-      profiles: [],
-      activeProfileId: null,
-      subjects: DEFAULT_SUBJECTS,
-      adminPinHash: null,
-      adminUnlockUntil: null,
-      trash: [],
-      adminLogs: [], // 관리자 변경 로그
-    }
+  const [data, setData] = useState({
+    dataVersion: DATA_VERSION,
+    profiles: [],
+    activeProfileId: null,
+    subjects: DEFAULT_SUBJECTS,
+    adminPinHash: null,
+    adminUnlockUntil: null,
+    trash: [],
+    adminLogs: [], // 관리자 변경 로그
   })
+  const [isLoading, setIsLoading] = useState(true)
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [syncStatus, setSyncStatus] = useState('idle') // 'idle' | 'syncing' | 'synced' | 'error'
   const isSyncingFromRemote = useRef(false)
 
+  // 초기 데이터 로딩
   useEffect(() => {
+    loadData().then(saved => {
+      if (saved) {
+        setData({ ...saved, activeProfileId: null })
+      }
+      setIsLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (isLoading) return
     hashPin(DEFAULT_PIN).then(defaultHash => {
       if (!data.adminPinHash || data.adminPinHash !== defaultHash) {
         const newData = { ...data, adminPinHash: defaultHash }
@@ -148,7 +147,7 @@ export function useStore() {
         saveData(newData)
       }
     })
-  }, [])
+  }, [isLoading])
 
   // Supabase에서 초기 데이터 로드 - 로컬 데이터와 병합
   useEffect(() => {
@@ -290,9 +289,9 @@ export function useStore() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const persist = useCallback((newData) => {
+  const persist = useCallback(async (newData) => {
     setData(newData)
-    saveData(newData)
+    await saveData(newData)
     // Supabase에 비동기 저장 (activeProfileId 제외)
     const { activeProfileId, ...toSave } = newData
     isSyncingFromRemote.current = true
