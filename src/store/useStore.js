@@ -344,16 +344,17 @@ export function useStore() {
     return profile.completions[today] || {}
   }, [data, today])
 
-  // 연속 일수 계산 함수 - 마지막 완료일부터 거슬러 올라가며 계산
-  const calculateStreak = useCallback((profile, checkDate) => {
+  // 연속 일수 계산 함수 - 어제부터 거슬러 올라가며 계산 (오늘 제외)
+  const calculateStreak = useCallback((profile) => {
     const completions = profile.completions || {}
     const tasks = profile.tasks || []
     
     if (!tasks.length) return { streak: 0, lastDate: null }
     
-    // checkDate부터 거슬러 올라가며 연속 완료일 계산
+    // 어제부터 거슬러 올라가며 연속 완료일 계산
     let streak = 0
-    let currentDate = new Date(checkDate)
+    let currentDate = new Date(Date.now() - 86400000) // 어제
+    let lastCompletedDate = null
     
     while (true) {
       const dateStr = format(currentDate, 'yyyy-MM-dd')
@@ -364,6 +365,7 @@ export function useStore() {
       
       if (allDone) {
         streak++
+        lastCompletedDate = dateStr
         // 하루 전으로 이동
         currentDate = new Date(currentDate.getTime() - 86400000)
       } else {
@@ -371,10 +373,7 @@ export function useStore() {
       }
     }
     
-    // 마지막 완료일 (streak이 0이면 null, 아니면 checkDate)
-    const lastDate = streak > 0 ? checkDate : profile.lastCompletedDate
-    
-    return { streak, lastDate }
+    return { streak, lastDate: lastCompletedDate }
   }, [])
 
   const toggleTask = useCallback((profileId, taskId, targetDate = null, isAdmin = false) => {
@@ -425,17 +424,17 @@ export function useStore() {
       let newLastDate = profile.lastCompletedDate
       
       if (allDone) {
-        // 오늘 완료했을 때 (학생이든 관리자든) - 오늘 기준으로 연속 일수 계산
+        // 오늘 완료했을 때 (학생이든 관리자든) - 어제까지 기준으로 연속 일수 계산
         if (date === today) {
-          // 오늘 기준으로 연속 일수 실시간 계산
-          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions }, today)
+          // 어제까지 기준으로 연속 일수 실시간 계산 (오늘 제외)
+          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions })
           newStreak = streak
           newLastDate = today  // 오늘 완료했으므로 마지막 완료일은 today
         } 
         // 관리자가 과거 날짜 완료했을 때 - 연속 일수 재계산
         else if (isAdmin && date !== today) {
-          // 해당 날짜 기준으로 연속 일수 계산
-          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions }, date)
+          // 어제까지 기준으로 연속 일수 계산 (오늘 제외)
+          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions })
           newStreak = streak
           newLastDate = lastDate
         }

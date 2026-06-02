@@ -39,14 +39,15 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const jsDay = viewDate.getDay() // 0=일~6=토
   const viewDow = jsDay === 0 ? 7 : jsDay // 1=월,2=화,...,6=토,7=일
 
-  // 오늘 기준 실시간 연속 일수 계산
+  // 어제까지 기준 연속 일수 계산 (오늘 제외)
   const calculateStreak = (profile) => {
     const completions = profile?.completions || {}
     const tasks = profile?.tasks || []
     if (!tasks.length) return 0
     
     let streak = 0
-    let currentDate = new Date()
+    // 어제부터 거슬러 올라가며 계산
+    let currentDate = new Date(Date.now() - 86400000) // 어제
     
     while (true) {
       const dateStr = format(currentDate, 'yyyy-MM-dd')
