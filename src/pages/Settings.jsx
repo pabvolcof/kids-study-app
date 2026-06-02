@@ -869,7 +869,7 @@ export default function Settings({ store, onLock, onBack }) {
           </div>
           
           {/* 해당 날짜의 목표 목록 */}
-          <div className="space-y-2 max-h-32 overflow-y-auto">
+          <div className="space-y-2 max-h-40 overflow-y-auto">
             {(() => {
               const selectedDate = new Date(calendarSelectedDate)
               const dow = selectedDate.getDay() // 0=일 ~ 6=토
@@ -878,20 +878,66 @@ export default function Settings({ store, onLock, onBack }) {
               const tasksForDate = (profile?.tasks || []).filter(t => 
                 !t.days || t.days.length === 0 || t.days.includes(dowForTask)
               )
+              // 해당 날짜의 완료 상태 확인
+              const dateCompletions = profile?.completions?.[calendarSelectedDate] || {}
               
               if (tasksForDate.length === 0) {
                 return <div className="text-sm text-gray-400 text-center py-2">이 날은 목표가 없어요</div>
               }
               
-              return tasksForDate.map(task => (
-                <div key={task.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                  {task.coverUrl && <img src={task.coverUrl} className="w-6 h-8 object-cover rounded" />}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-700 truncate">{task.title}</div>
-                    <div className="text-xs text-gray-500">{task.points}점</div>
+              return tasksForDate.map(task => {
+                const isCompleted = !!dateCompletions[task.id]
+                return (
+                  <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isCompleted ? 'bg-green-50' : 'bg-gray-50'}`}>
+                    {task.coverUrl && <img src={task.coverUrl} className="w-6 h-8 object-cover rounded" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-700 truncate">{task.title}</div>
+                      <div className="text-xs text-gray-500">{task.points}점 {isCompleted && <span className="text-green-600 font-medium">✓ 완료</span>}</div>
+                    </div>
+                    {/* 완료 취소 / 수정 / 삭제 버튼 */}
+                    <div className="flex items-center gap-1">
+                      {isCompleted && (
+                        <button
+                          onClick={() => {
+                            // 해당 날짜에서만 완료 취소
+                            toggleTask(selectedProfileId, task.id, calendarSelectedDate, true)
+                          }}
+                          className="p-1.5 text-green-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="이 날짜만 완료 취소"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          // 수정 모드 활성화 (기존 목표 관리 탭으로 이동)
+                          setEditingTaskId(task.id)
+                          setEditTaskTitle(task.title)
+                          setEditTaskPoints(task.points)
+                          setEditTaskDays(task.days || [])
+                          setEditTaskCoverUrl(task.coverUrl)
+                          setShowCalendarTaskModal(false)
+                          setProfileTab('tasks')
+                          setSelectedProfileId(selectedProfileId)
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
+                        title="수정"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfirmDeleteTask({ taskId: task.id, title: task.title })
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             })()}
           </div>
           
