@@ -39,6 +39,32 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const jsDay = viewDate.getDay() // 0=일~6=토
   const viewDow = jsDay === 0 ? 7 : jsDay // 1=월,2=화,...,6=토,7=일
 
+  // 오늘 기준 실시간 연속 일수 계산
+  const calculateStreak = (profile) => {
+    const completions = profile?.completions || {}
+    const tasks = profile?.tasks || []
+    if (!tasks.length) return 0
+    
+    let streak = 0
+    let currentDate = new Date()
+    
+    while (true) {
+      const dateStr = format(currentDate, 'yyyy-MM-dd')
+      const dayComp = completions[dateStr] || {}
+      const allDone = tasks.every(t => dayComp[t.id])
+      
+      if (allDone) {
+        streak++
+        currentDate = new Date(currentDate.getTime() - 86400000)
+      } else {
+        break
+      }
+    }
+    return streak
+  }
+  
+  const currentStreak = calculateStreak(activeProfile)
+
   const viewCompletions = (activeProfile.completions || {})[viewDateStr] || {}
   const allTasks = activeProfile.tasks || []
   const tasks = allTasks.filter(t => !t.days || t.days.length === 0 || t.days.includes(viewDow))
@@ -203,7 +229,7 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
             </div>
             <div className="flex items-center justify-end gap-1 text-orange-300 mt-1">
               <Flame className="w-4 h-4" />
-              <span className="font-semibold">{activeProfile.streak || 0}일 연속</span>
+              <span className="font-semibold">{currentStreak}일 연속</span>
             </div>
           </div>
         </div>
