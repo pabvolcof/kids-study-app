@@ -1,15 +1,17 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'kids_study_app'
-const DB_VERSION = 1
+const DB_VERSION = 2  // 버전 증가 (강제 재생성)
 const STORE_NAME = 'app_data'
 
 export async function openDatabase() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME)
+    upgrade(db, oldVersion, newVersion, transaction) {
+      // 기존 스토어 삭제 후 재생성
+      if (db.objectStoreNames.contains(STORE_NAME)) {
+        db.deleteObjectStore(STORE_NAME)
       }
+      db.createObjectStore(STORE_NAME)
     },
   })
 }
@@ -22,13 +24,7 @@ export async function loadFromDB() {
     return data
   } catch (e) {
     console.error('DB load error:', e)
-    // Fallback to localStorage
-    try {
-      const raw = localStorage.getItem('kids_study_app_v1')
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
+    return null
   }
 }
 
@@ -40,14 +36,7 @@ export async function saveToDB(data) {
     return true
   } catch (e) {
     console.error('DB save error:', e)
-    // Fallback to localStorage
-    try {
-      localStorage.setItem('kids_study_app_v1', JSON.stringify(data))
-      return true
-    } catch (e2) {
-      console.error('LocalStorage save error:', e2)
-      return false
-    }
+    return false
   }
 }
 
