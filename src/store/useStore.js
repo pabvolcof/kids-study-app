@@ -408,16 +408,17 @@ export function useStore() {
 
       const allDone = profile.tasks.every(t => newDateComp[t.id])
       
-      // 개선된 연속 일수 계산
+      // 개선된 연속 일수 계산 - 오늘 기준으로 실시간 계산
       let newStreak = profile.streak || 0
       let newLastDate = profile.lastCompletedDate
       
       if (allDone) {
-        // 오늘 완료했을 때
-        if (date === today && profile.lastCompletedDate !== today) {
-          const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd')
-          newStreak = profile.lastCompletedDate === yesterday ? (profile.streak || 0) + 1 : 1
-          newLastDate = today
+        // 오늘 완료했을 때 (학생이든 관리자든) - 오늘 기준으로 연속 일수 계산
+        if (date === today) {
+          // 오늘 기준으로 연속 일수 실시간 계산
+          const { streak, lastDate } = calculateStreak({ ...profile, completions: updatedProfile.completions }, today)
+          newStreak = streak
+          newLastDate = today  // 오늘 완료했으므로 마지막 완료일은 today
         } 
         // 관리자가 과거 날짜 완료했을 때 - 연속 일수 재계산
         else if (isAdmin && date !== today) {
