@@ -273,12 +273,13 @@ export function useStore() {
     return profile.completions[today] || {}
   }, [data, today])
 
-  // 연속 일수 계산 함수 - 어제부터 거슬러 올라가며 계산 (오늘 제외)
+  // 연속 일수 계산 함수 - 어제부터 거슬러 올라가며 계산 (오늘 제외) - 표시되는 목표만 기준
   const calculateStreak = useCallback((profile) => {
     const completions = profile.completions || {}
-    const tasks = profile.tasks || []
+    const allTasks = profile.tasks || []
+    const hiddenTasksForDate = profile.hiddenTasksForDate || {}
     
-    if (!tasks.length) return { streak: 0, lastDate: null }
+    if (!allTasks.length) return { streak: 0, lastDate: null }
     
     // 어제부터 거슬러 올라가며 연속 완료일 계산
     let streak = 0
@@ -288,9 +289,19 @@ export function useStore() {
     while (true) {
       const dateStr = format(currentDate, 'yyyy-MM-dd')
       const dayComp = completions[dateStr] || {}
+      const hiddenTasks = hiddenTasksForDate[dateStr] || []
       
-      // 해당 날짜에 모든 목표 완료했는지 확인
-      const allDone = tasks.every(t => dayComp[t.id])
+      // 숨겨지지 않은 목표만 필터링 (달력 표시 기준과 동일)
+      const visibleTasks = allTasks.filter(t => !hiddenTasks.includes(t.id))
+      
+      // 표시되는 목표가 없으면 해당 날짜는 스킵 (시작 전)
+      if (visibleTasks.length === 0) {
+        currentDate = new Date(currentDate.getTime() - 86400000)
+        continue
+      }
+      
+      // 해당 날짜에 표시되는 모든 목표 완료했는지 확인
+      const allDone = visibleTasks.every(t => dayComp[t.id])
       
       if (allDone) {
         streak++

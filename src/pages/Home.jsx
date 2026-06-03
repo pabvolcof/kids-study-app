@@ -50,11 +50,12 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const jsDay = viewDate.getDay() // 0=일~6=토
   const viewDow = jsDay === 0 ? 7 : jsDay // 1=월,2=화,...,6=토,7=일
 
-  // 어제까지 기준 연속 일수 계산 (오늘 제외)
+  // 어제까지 기준 연속 일수 계산 (오늘 제외) - 표시되는 목표만 기준
   const calculateStreak = (profile) => {
     const completions = profile?.completions || {}
-    const tasks = profile?.tasks || []
-    if (!tasks.length) return 0
+    const allTasks = profile?.tasks || []
+    const hiddenTasksForDate = profile?.hiddenTasksForDate || {}
+    if (!allTasks.length) return 0
     
     let streak = 0
     // 어제부터 거슬러 올라가며 계산
@@ -63,7 +64,18 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
     while (true) {
       const dateStr = format(currentDate, 'yyyy-MM-dd')
       const dayComp = completions[dateStr] || {}
-      const allDone = tasks.every(t => dayComp[t.id])
+      const hiddenTasks = hiddenTasksForDate[dateStr] || []
+      
+      // 숨겨지지 않은 목표만 필터링 (달력 표시 기준과 동일)
+      const visibleTasks = allTasks.filter(t => !hiddenTasks.includes(t.id))
+      
+      // 표시되는 목표가 없으면 해당 날짜는 스킵 (시작 전)
+      if (visibleTasks.length === 0) {
+        currentDate = new Date(currentDate.getTime() - 86400000)
+        continue
+      }
+      
+      const allDone = visibleTasks.every(t => dayComp[t.id])
       
       if (allDone) {
         streak++
