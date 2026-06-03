@@ -38,6 +38,38 @@ function migrateData(raw) {
       if (!existingIds.has(s.id)) data.subjects = [...data.subjects, s]
     })
   }
+  
+  // 2025년 데이터를 2026년으로 마이그레이션
+  if (data.profiles) {
+    data.profiles = data.profiles.map(profile => {
+      // completions 날짜 변환 (2025-XX-XX → 2026-XX-XX)
+      const newCompletions = {}
+      Object.entries(profile.completions || {}).forEach(([date, comp]) => {
+        const newDate = date.replace(/^2025-/, '2026-')
+        newCompletions[newDate] = comp
+      })
+      
+      // hiddenTasksForDate 날짜 변환
+      const newHiddenTasks = {}
+      Object.entries(profile.hiddenTasksForDate || {}).forEach(([date, tasks]) => {
+        const newDate = date.replace(/^2025-/, '2026-')
+        newHiddenTasks[newDate] = tasks
+      })
+      
+      // lastCompletedDate 변환
+      const newLastCompletedDate = profile.lastCompletedDate 
+        ? profile.lastCompletedDate.replace(/^2025-/, '2026-')
+        : profile.lastCompletedDate
+      
+      return {
+        ...profile,
+        completions: newCompletions,
+        hiddenTasksForDate: newHiddenTasks,
+        lastCompletedDate: newLastCompletedDate
+      }
+    })
+  }
+  
   data.dataVersion = DATA_VERSION
   return data
 }
