@@ -66,8 +66,23 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
       const dayComp = completions[dateStr] || {}
       const hiddenTasks = hiddenTasksForDate[dateStr] || []
       
-      // 숨겨지지 않은 목표만 필터링 (달력 표시 기준과 동일)
-      const visibleTasks = allTasks.filter(t => !hiddenTasks.includes(t.id))
+      // 요일 계산 (1=월, 2=화, ..., 7=일)
+      const jsDay = currentDate.getDay()
+      const dow = jsDay === 0 ? 7 : jsDay
+      
+      // 달력 표시 기준과 동일한 필터링 적용
+      const visibleTasks = allTasks.filter(t => {
+        // 숨김 처리된 목표 제외
+        if (hiddenTasks.includes(t.id)) return false
+        
+        // 일회성 목표는 해당 날짜에만 표시
+        if (t.oneTime) {
+          return t.oneTimeDate === dateStr
+        }
+        
+        // 반복 목표는 요일 체크
+        return !t.days || t.days.length === 0 || t.days.includes(dow)
+      })
       
       // 표시되는 목표가 없으면 해당 날짜는 스킵 (시작 전)
       if (visibleTasks.length === 0) {
