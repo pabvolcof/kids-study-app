@@ -202,11 +202,14 @@ export function useStore() {
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const isSyncingFromRemote = useRef(false)
 
-  // 초기 데이터 로딩
+  // 초기 데이터 로딩 (마이그레이션된 데이터 저장)
   useEffect(() => {
     loadData().then(saved => {
       if (saved) {
-        setData({ ...saved, activeProfileId: null })
+        const migratedData = { ...saved, activeProfileId: null }
+        setData(migratedData)
+        // 마이그레이션된 데이터를 IndexedDB에 저장 (날짜 변환 등)
+        saveData(migratedData)
       }
       setIsLoading(false)
     })
