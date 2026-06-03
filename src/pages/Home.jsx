@@ -9,7 +9,7 @@ import PinModal from '../components/PinModal'
 const LEVEL_TITLES = ['새싹', '새싹', '새싹', '씩씩한 학생', '씩씩한 학생', '열공왕', '열공왕', '공부마스터', '공부마스터', '천재소년', '천재소년']
 
 export default function Home({ store, onReward, onGoHome, onGoSettings }) {
-  const { activeProfile, subjects, today, toggleTask, deleteTask, deleteTaskForDate, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask } = store
+  const { activeProfile, subjects, today, toggleTask, deleteTask, deleteTaskForDate, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask, isLoading } = store
   const [showAddTask, setShowAddTask] = useState(false)
   const [celebrate, setCelebrate] = useState(false)
   const [showAdminPin, setShowAdminPin] = useState(false)
@@ -17,6 +17,18 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const [editingTask, setEditingTask] = useState(null)
   const [editTitle, setEditTitle] = useState('')
   const [editPoints, setEditPoints] = useState(10)
+
+  // 로딩 중일 때 로딩 화면 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⟳</div>
+          <div className="text-gray-600 font-medium">데이터 불러오는 중...</div>
+        </div>
+      </div>
+    )
+  }
 
   const handleAdminLogin = async (pin) => {
     const ok = await verifyPin(pin)

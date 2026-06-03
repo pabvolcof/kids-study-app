@@ -704,5 +704,6 @@ export function useStore() {
     verifyProfilePin,
     pendingMilestones: data.pendingMilestones || [],
     clearMilestone,
+    isLoading,  // 로딩 상태 반환
   }
 }
