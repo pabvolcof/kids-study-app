@@ -74,7 +74,7 @@ async function loadData() {
 
 async function saveData(data) {
   try {
-    // 30일 이상 된 completions 정리 (용량 최적화)
+    // 7일 이상 된 completions 정리 (300MB 한도 관리)
     const cleaned = cleanOldData(data)
     await saveToDB(cleaned)
   } catch (e) {
@@ -82,20 +82,29 @@ async function saveData(data) {
   }
 }
 
-// 30일 이상 된 completions 자동 정리
+// 7일 이상 된 completions 자동 정리 (300MB 한도)
+const MAX_STORAGE_MB = 300
+const MAX_STORAGE_BYTES = MAX_STORAGE_MB * 1024 * 1024
+const RETENTION_DAYS = 7  // 7일만 보관
+
+function getDataSize(data) {
+  const str = JSON.stringify(data)
+  return new Blob([str]).size
+}
+
 function cleanOldData(data) {
   if (!data || !data.profiles) return data
   
   const today = new Date()
-  const cutoffDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000) // 30일 전
+  const cutoffDate = new Date(today.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000)
   const cutoffStr = cutoffDate.toISOString().split('T')[0]
   
-  return {
+  let cleanedData = {
     ...data,
     profiles: data.profiles.map(profile => {
       if (!profile.completions) return profile
       
-      // 30일 이내 completions만 유지
+      // 7일 이내 completions만 유지
       const recentCompletions = {}
       Object.entries(profile.completions).forEach(([date, comp]) => {
         if (date >= cutoffStr) {
@@ -103,12 +112,47 @@ function cleanOldData(data) {
         }
       })
       
+      // hiddenTasksForDate도 정리 (7일 이상 지난 날짜 제거)
+      const recentHiddenTasks = {}
+      if (profile.hiddenTasksForDate) {
+        Object.entries(profile.hiddenTasksForDate).forEach(([date, tasks]) => {
+          if (date >= cutoffStr) {
+            recentHiddenTasks[date] = tasks
+          }
+        })
+      }
+      
       return {
         ...profile,
-        completions: recentCompletions
+        completions: recentCompletions,
+        hiddenTasksForDate: recentHiddenTasks
       }
     })
   }
+  
+  // 크기 체크 및 추가 정리 (300MB 초과 시)
+  const size = getDataSize(cleanedData)
+  if (size > MAX_STORAGE_BYTES) {
+    console.warn(`데이터 크기 ${Math.round(size/1024/1024)}MB - 추가 정리 중...`)
+    // 더 짧은 보관 기간으로 재정리
+    const shorterCutoff = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000)
+    const shorterCutoffStr = shorterCutoff.toISOString().split('T')[0]
+    
+    cleanedData = {
+      ...cleanedData,
+      profiles: cleanedData.profiles.map(profile => {
+        const recentCompletions = {}
+        Object.entries(profile.completions || {}).forEach(([date, comp]) => {
+          if (date >= shorterCutoffStr) {
+            recentCompletions[date] = comp
+          }
+        })
+        return { ...profile, completions: recentCompletions }
+      })
+    }
+  }
+  
+  return cleanedData
 }
 
 export function useStore() {
