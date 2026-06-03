@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
-import { supabase } from '../lib/supabase'
 import { loadFromDB, saveToDB } from '../lib/db'
 
 const STORAGE_KEY = 'kids_study_app_v1'
@@ -125,7 +124,6 @@ export function useStore() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [adminUnlocked, setAdminUnlocked] = useState(false)
-  const [syncStatus, setSyncStatus] = useState('idle') // 'idle' | 'syncing' | 'synced' | 'error'
   const isSyncingFromRemote = useRef(false)
 
   // 초기 데이터 로딩
@@ -149,158 +147,11 @@ export function useStore() {
     })
   }, [isLoading])
 
-  // Supabase에서 초기 데이터 로드 - 로컬 데이터와 병합
-  useEffect(() => {
-    setSyncStatus('syncing')
-    
-    // 10초 타임아웃 설정
-    const timeoutId = setTimeout(() => {
-      console.warn('동기화 타임아웃')
-      setSyncStatus('error')
-    }, 10000)
-    
-    supabase.from('app_data').select('data').eq('id', 'main').single()
-      .then(({ data: row, error }) => {
-        clearTimeout(timeoutId) // 타임아웃 취소
-        if (error) { 
-          console.error('Supabase 오류:', error)
-          setSyncStatus('error'); 
-          return 
-        }
-        if (!row) {
-          console.log('Supabase에 데이터 없음 - 초기 데이터 생성')
-          setSyncStatus('synced')
-          return
-        }
-        const remote = row.data
-        const local = data
-        
-        if (remote && remote.profiles && remote.profiles.length > 0) {
-          // 로컬 프로필과 원격 프로필 병합 (ID 기준)
-          const localProfileIds = new Set((local.profiles || []).map(p => p.id))
-          const remoteProfileIds = new Set(remote.profiles.map(p => p.id))
-          
-          // 로컬에만 있는 프로필 추가
-          const localOnlyProfiles = (local.profiles || []).filter(p => !remoteProfileIds.has(p.id))
-          // 원격에만 있는 프로필 추가
-          const remoteOnlyProfiles = remote.profiles.filter(p => !localProfileIds.has(p.id))
-          
-          // 공통 프로필은 completions 데이터 병합 - 로컬 우선
-          const commonProfiles = (local.profiles || []).filter(p => remoteProfileIds.has(p.id)).map(localProfile => {
-            const remoteProfile = remote.profiles.find(p => p.id === localProfile.id)
-            const mergedCompletions = {
-              ...(remoteProfile.completions || {}),
-              ...(localProfile.completions || {})
-            }
-            // 휴지통에 있는 task ID 목록
-            const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
-            const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
-            // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
-            const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
-            return {
-              ...remoteProfile,
-              ...localProfile,
-              tasks: mergedTasks,  // 로컬 tasks 우선 사용
-              completions: mergedCompletions,
-              totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
-              level: localProfile.level || remoteProfile.level,
-              streak: localProfile.streak || remoteProfile.streak,
-              lastCompletedDate: localProfile.lastCompletedDate || remoteProfile.lastCompletedDate
-            }
-          })
-          
-          const mergedProfiles = [...remoteOnlyProfiles, ...commonProfiles, ...localOnlyProfiles]
-          
-          const merged = migrateData({
-            ...remote,
-            profiles: mergedProfiles,
-            activeProfileId: local.activeProfileId || null,
-            trash: [...(remote.trash || []), ...(local.trash || [])]
-          })
-          
-          setData(merged)
-          saveData(merged)
-        }
-        setSyncStatus('synced')
-      })
-  }, [])
-
-  // Realtime 구독 - 다른 기기 변경사항 수신
-  useEffect(() => {
-    const channel = supabase
-      .channel('app_data_changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_data', filter: 'id=eq.main' },
-        (payload) => {
-          if (isSyncingFromRemote.current) return
-          const remote = payload.new.data
-          // 최신 로컬 데이터 가져오기
-          const localRaw = localStorage.getItem(STORAGE_KEY)
-          const local = localRaw ? JSON.parse(localRaw) : data
-          
-          if (remote && remote.profiles) {
-            // 로컬 프로필과 원격 프로필 병합
-            const localProfileIds = new Set((local.profiles || []).map(p => p.id))
-            const remoteProfileIds = new Set(remote.profiles.map(p => p.id))
-            
-            const localOnlyProfiles = (local.profiles || []).filter(p => !remoteProfileIds.has(p.id))
-            const remoteOnlyProfiles = remote.profiles.filter(p => !localProfileIds.has(p.id))
-            
-            // 공통 프로필은 completions 데이터 병합
-            const commonProfiles = (local.profiles || []).filter(p => remoteProfileIds.has(p.id)).map(localProfile => {
-              const remoteProfile = remote.profiles.find(p => p.id === localProfile.id)
-              // completions 병합 - 로컬 우선 (최신 체크 상태 유지)
-              const mergedCompletions = {
-                ...(remoteProfile.completions || {}),
-                ...(localProfile.completions || {})
-              }
-              // 휴지통에 있는 task ID 목록
-              const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
-              const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
-              // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
-              const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
-              return {
-                ...remoteProfile,
-                ...localProfile,
-                tasks: mergedTasks,  // 로컬 tasks 우선 사용
-                completions: mergedCompletions,
-                // 로컬의 최신 상태 유지
-                totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
-                level: localProfile.level || remoteProfile.level,
-                streak: localProfile.streak || remoteProfile.streak,
-                lastCompletedDate: localProfile.lastCompletedDate || remoteProfile.lastCompletedDate
-              }
-            })
-            
-            const mergedProfiles = [...remoteOnlyProfiles, ...commonProfiles, ...localOnlyProfiles]
-            
-            const merged = migrateData({
-              ...remote,
-              profiles: mergedProfiles,
-              activeProfileId: local.activeProfileId || null,
-              trash: [...(remote.trash || []), ...(local.trash || [])]
-            })
-            
-            setData(prev => ({ ...merged, activeProfileId: prev.activeProfileId }))
-            saveData({ ...merged, activeProfileId: null })
-          }
-        }
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [])
+  // 오프라인 모드 - 서버 동기화 없음
 
   const persist = useCallback(async (newData) => {
     setData(newData)
     await saveData(newData)
-    // Supabase에 비동기 저장 (activeProfileId 제외)
-    const { activeProfileId, ...toSave } = newData
-    isSyncingFromRemote.current = true
-    setSyncStatus('syncing')
-    supabase.from('app_data').upsert({ id: 'main', data: toSave })
-      .then(({ error }) => {
-        setSyncStatus(error ? 'error' : 'synced')
-        setTimeout(() => { isSyncingFromRemote.current = false }, 500)
-      })
   }, [])
 
   const activeProfile = data.profiles.find(p => p.id === data.activeProfileId) || null
@@ -515,6 +366,49 @@ export function useStore() {
     return { ok: true }
   }, [data, persist, today])
 
+  // 특정 일에만 목표 추가 (일회성)
+  const addTaskForDate = useCallback((profileId, task, dateStr) => {
+    const profile = data.profiles.find(p => p.id === profileId)
+    if (!profile) return
+    const newTask = { 
+      ...task, 
+      id: `task_${Date.now()}`, 
+      oneTimeDate: dateStr,  // 해당 날짜에만 표시
+      oneTime: true
+    }
+    persist({
+      ...data,
+      profiles: data.profiles.map(p =>
+        p.id === profileId ? { ...p, tasks: [...(p.tasks||[]), newTask] } : p
+      ),
+    })
+  }, [data, persist])
+
+  // 특정 일의 목표만 삭제 (숨김 처리)
+  const deleteTaskForDate = useCallback((profileId, taskId, dateStr) => {
+    const profile = data.profiles.find(p => p.id === profileId)
+    if (!profile) return
+    
+    // 해당 날짜에만 삭제 표시 (hiddenTasksForDate)
+    const hiddenTasks = profile.hiddenTasksForDate || {}
+    const dateHidden = hiddenTasks[dateStr] || []
+    
+    persist({
+      ...data,
+      profiles: data.profiles.map(p =>
+        p.id === profileId 
+          ? { 
+              ...p, 
+              hiddenTasksForDate: {
+                ...hiddenTasks,
+                [dateStr]: [...dateHidden, taskId]
+              }
+            } 
+          : p
+      ),
+    })
+  }, [data, persist])
+
   const clearMilestone = useCallback((index) => {
     const updated = (data.pendingMilestones || []).filter((_, i) => i !== index)
     persist({ ...data, pendingMilestones: updated })
@@ -588,6 +482,30 @@ export function useStore() {
       profiles: data.profiles.map(p =>
         p.id === profileId
           ? { ...p, tasks: (p.tasks || []).filter(t => t.id !== taskId), completions: newCompletions, totalPoints: newTotalPoints, level: newLevel }
+          : p
+      ),
+    })
+  }, [data, persist])
+
+  // 특정 일의 목표 삭제 취소 (복원)
+  const restoreTaskForDate = useCallback((profileId, taskId, dateStr) => {
+    const profile = data.profiles.find(p => p.id === profileId)
+    if (!profile) return
+    
+    const hiddenTasks = profile.hiddenTasksForDate || {}
+    const dateHidden = hiddenTasks[dateStr] || []
+    
+    persist({
+      ...data,
+      profiles: data.profiles.map(p =>
+        p.id === profileId 
+          ? { 
+              ...p, 
+              hiddenTasksForDate: {
+                ...hiddenTasks,
+                [dateStr]: dateHidden.filter(id => id !== taskId)
+              }
+            } 
           : p
       ),
     })
@@ -720,8 +638,11 @@ export function useStore() {
     addTask,
     copyTask,
     addStudentTask,
+    addTaskForDate,      // 특정 일에만 목표 추가
     updateTask,
     deleteTask,
+    deleteTaskForDate,   // 특정 일의 목표만 삭제
+    restoreTaskForDate, // 특정 일의 목표 삭제 취소
     restoreTask,
     emptyTrash,
     deleteTrashItem,
@@ -734,65 +655,6 @@ export function useStore() {
     lockAdmin,
     exportData,
     importData,
-    syncStatus,
-    manualSync: useCallback(() => {
-      setSyncStatus('syncing')
-      return supabase.from('app_data').select('data').eq('id', 'main').single()
-        .then(({ data: row, error }) => {
-          if (error || !row) { 
-            setSyncStatus('error')
-            return { success: false, error }
-          }
-          const remote = row.data
-          const localRaw = localStorage.getItem(STORAGE_KEY)
-          const local = localRaw ? JSON.parse(localRaw) : data
-          
-          if (remote && remote.profiles) {
-            const localProfileIds = new Set((local.profiles || []).map(p => p.id))
-            const remoteProfileIds = new Set(remote.profiles.map(p => p.id))
-            
-            const localOnlyProfiles = (local.profiles || []).filter(p => !remoteProfileIds.has(p.id))
-            const remoteOnlyProfiles = remote.profiles.filter(p => !localProfileIds.has(p.id))
-            
-            const commonProfiles = (local.profiles || []).filter(p => remoteProfileIds.has(p.id)).map(localProfile => {
-              const remoteProfile = remote.profiles.find(p => p.id === localProfile.id)
-              const mergedCompletions = {
-                ...(remoteProfile.completions || {}),
-                ...(localProfile.completions || {})
-              }
-              // 휴지통에 있는 task ID 목록
-              const localTrashTaskIds = new Set((local.trash || []).map(t => t.id))
-              const remoteTrashTaskIds = new Set((remote.trash || []).map(t => t.id))
-              // 로컬 tasks에서 휴지통에 없는 것만 사용 (삭제된 task 복원 방지)
-              const mergedTasks = (localProfile.tasks || []).filter(t => !remoteTrashTaskIds.has(t.id))
-              return {
-                ...remoteProfile,
-                ...localProfile,
-                tasks: mergedTasks,  // 로컬 tasks 우선 사용
-                completions: mergedCompletions,
-                totalPoints: localProfile.totalPoints || remoteProfile.totalPoints,
-                level: localProfile.level || remoteProfile.level,
-                streak: localProfile.streak || remoteProfile.streak,
-                lastCompletedDate: localProfile.lastCompletedDate || remoteProfile.lastCompletedDate
-              }
-            })
-            
-            const mergedProfiles = [...remoteOnlyProfiles, ...commonProfiles, ...localOnlyProfiles]
-            
-            const merged = migrateData({
-              ...remote,
-              profiles: mergedProfiles,
-              activeProfileId: local.activeProfileId || null,
-              trash: [...(remote.trash || []), ...(local.trash || [])]
-            })
-            
-            setData(merged)
-            saveData(merged)
-          }
-          setSyncStatus('synced')
-          return { success: true }
-        })
-    }, [data]),
     setProfilePin,
     clearProfilePin,
     verifyProfilePin,

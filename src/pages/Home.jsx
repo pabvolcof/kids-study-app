@@ -9,7 +9,7 @@ import PinModal from '../components/PinModal'
 const LEVEL_TITLES = ['새싹', '새싹', '새싹', '씩씩한 학생', '씩씩한 학생', '열공왕', '열공왕', '공부마스터', '공부마스터', '천재소년', '천재소년']
 
 export default function Home({ store, onReward, onGoHome, onGoSettings }) {
-  const { activeProfile, subjects, today, toggleTask, deleteTask, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask, syncStatus, manualSync } = store
+  const { activeProfile, subjects, today, toggleTask, deleteTask, deleteTaskForDate, updateTask, isAdminMode, isPinSet, lockAdmin, verifyPin, addStudentTask } = store
   const [showAddTask, setShowAddTask] = useState(false)
   const [celebrate, setCelebrate] = useState(false)
   const [showAdminPin, setShowAdminPin] = useState(false)
@@ -17,7 +17,6 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
   const [editingTask, setEditingTask] = useState(null)
   const [editTitle, setEditTitle] = useState('')
   const [editPoints, setEditPoints] = useState(10)
-  const [forceOffline, setForceOffline] = useState(false)
 
   const handleAdminLogin = async (pin) => {
     const ok = await verifyPin(pin)
@@ -68,7 +67,22 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
 
   const viewCompletions = (activeProfile.completions || {})[viewDateStr] || {}
   const allTasks = activeProfile.tasks || []
-  const tasks = allTasks.filter(t => !t.days || t.days.length === 0 || t.days.includes(viewDow))
+  const hiddenTasksForDate = activeProfile.hiddenTasksForDate || {}
+  const hiddenTasks = hiddenTasksForDate[viewDateStr] || []
+  
+  // 목표 필터링: hiddenTasksForDate 제외, oneTimeDate 체크
+  const tasks = allTasks.filter(t => {
+    // 해당 날짜에 삭제된 목표 제외
+    if (hiddenTasks.includes(t.id)) return false
+    
+    // 일회성 목표는 해당 날짜에만 표시
+    if (t.oneTime) {
+      return t.oneTimeDate === viewDateStr
+    }
+    
+    // 반복 목표는 요일 체크
+    return !t.days || t.days.length === 0 || t.days.includes(viewDow)
+  })
   const todayStr = today
   const studentAddedToday = allTasks.filter(t => t.addedBy === 'student' && t.addedDate === todayStr).length
   const studentCanAdd = studentAddedToday < 3
@@ -178,31 +192,12 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
         )}
       </div>
 
-      {/* 동기화 상태 */}
+      {/* 오프라인 모드 - 로컬 저장 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {syncStatus === 'syncing' && <div className="flex items-center gap-1.5 text-xs text-indigo-400 font-medium"><span className="animate-spin">⟳</span> 동기화 중...</div>}
-          {syncStatus === 'synced' && <div className="text-xs text-green-400 font-medium">✓ 동기화 완료</div>}
-          {syncStatus === 'error' && <div className="text-xs text-red-400 font-medium">⚠ 동기화 실패</div>}
-          {syncStatus === 'idle' && <div className="text-xs text-gray-400 font-medium">○ 동기화 대기</div>}
-          {forceOffline && <div className="text-xs text-orange-400 font-medium">✈ 오프라인 모드</div>}
+          <div className="text-xs text-gray-400 font-medium">📱 오프라인 모드</div>
         </div>
         <div className="flex items-center gap-2">
-          {syncStatus === 'syncing' && (
-            <button 
-              onClick={() => setForceOffline(true)}
-              className="text-xs text-red-400 hover:text-red-600 font-medium"
-            >
-              ✕ 중지
-            </button>
-          )}
-          <button 
-            onClick={() => manualSync && manualSync()}
-            disabled={syncStatus === 'syncing' || forceOffline}
-            className="text-xs text-indigo-500 hover:text-indigo-700 font-medium disabled:opacity-50"
-          >
-            🔄 수동 동기화
-          </button>
         </div>
       </div>
 
@@ -306,7 +301,7 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
                 task={task}
                 done={!!viewCompletions[task.id]}
                 onToggle={isAdminMode ? () => handleToggle(task.id) : (isToday ? () => handleToggle(task.id) : null)}
-                onDelete={isAdminMode ? () => deleteTask(activeProfile.id, task.id) : null}
+                onDelete={isAdminMode ? () => deleteTaskForDate(activeProfile.id, task.id, viewDateStr) : null}
                 onEdit={isAdminMode ? () => { setEditingTask(task); setEditTitle(task.title); setEditPoints(task.points) } : null}
               />
             ))}
@@ -327,7 +322,7 @@ export default function Home({ store, onReward, onGoHome, onGoSettings }) {
                 task={task}
                 done={!!viewCompletions[task.id]}
                 onToggle={isAdminMode ? () => handleToggle(task.id) : (isToday ? () => handleToggle(task.id) : null)}
-                onDelete={isAdminMode ? () => deleteTask(activeProfile.id, task.id) : null}
+                onDelete={isAdminMode ? () => deleteTaskForDate(activeProfile.id, task.id, viewDateStr) : null}
                 onEdit={isAdminMode ? () => { setEditingTask(task); setEditTitle(task.title); setEditPoints(task.points) } : null}
               />
             ))}
